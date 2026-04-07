@@ -8,7 +8,7 @@ import {
   switchWalletChain
 } from "./web3/viem";
 
-const VAULTS_API = "/api/vaults";
+const VAULTS_API = "http://72.11.152.194:3088/vaults";
 const OFFICIAL_LOGO_PATH = "/julian-capital-logo.png";
 const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11" as Address;
 const RPC_MIN_INTERVAL_MS = 220;
