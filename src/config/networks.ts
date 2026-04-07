@@ -12,7 +12,7 @@ const NETWORKS: Record<NetworkName, NetworkConfig> = {
     key: "eth",
     name: "Ethereum Mainnet",
     chainId: 1,
-    rpcUrl: "https://rpc.ankr.com/eth"
+        rpcUrl: "https://eth-mainnet.public.blastapi.io"
   },
   arbitrum: {
     key: "arbitrum",
@@ -24,7 +24,7 @@ const NETWORKS: Record<NetworkName, NetworkConfig> = {
     key: "base",
     name: "Base Mainnet",
     chainId: 8453,
-    rpcUrl: "https://mainnet.base.org"
+      rpcUrl: "https://base-mainnet.public.blastapi.io"
   },
   hyperevm: {
     key: "hyperevm",

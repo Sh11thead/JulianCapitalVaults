@@ -20,7 +20,7 @@ export interface ConnectedWallet {
   chainId: number;
 }
 
-function toViemChain(name: NetworkName): Chain {
+export function toViemChain(name: NetworkName): Chain {
   const network = getNetwork(name);
 
   return {
@@ -60,12 +60,17 @@ export function createNetworkPublicClient(name: NetworkName) {
   });
 }
 
-export async function connectWallet(preferredNetwork: NetworkName): Promise<ConnectedWallet> {
+export function createNetworkWalletClient(name: NetworkName) {
   const provider = getBrowserProvider();
-  const walletClient = createWalletClient({
-    chain: toViemChain(preferredNetwork),
+
+  return createWalletClient({
+    chain: toViemChain(name),
     transport: custom(provider)
   });
+}
+
+export async function connectWallet(preferredNetwork: NetworkName): Promise<ConnectedWallet> {
+  const walletClient = createNetworkWalletClient(preferredNetwork);
 
   const [address] = await walletClient.requestAddresses();
   const chainId = await walletClient.getChainId();
@@ -77,12 +82,8 @@ export async function connectWallet(preferredNetwork: NetworkName): Promise<Conn
 }
 
 export async function switchWalletChain(targetNetwork: NetworkName): Promise<number> {
-  const provider = getBrowserProvider();
   const chain = toViemChain(targetNetwork);
-  const walletClient = createWalletClient({
-    chain,
-    transport: custom(provider)
-  });
+  const walletClient = createNetworkWalletClient(targetNetwork);
 
   try {
     await walletClient.switchChain({ id: chain.id });
