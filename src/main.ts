@@ -9,7 +9,7 @@ import {
 } from "./web3/viem";
 
 const VAULTS_API = "https://curatorapi.juliancapital.top/vaults";
-const OFFICIAL_LOGO_PATH = "/julian-capital-logo.png";
+const OFFICIAL_LOGO_PATH = `${import.meta.env.BASE_URL}julian-capital-logo.png`;
 const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11" as Address;
 const RPC_MIN_INTERVAL_MS = 220;
 
