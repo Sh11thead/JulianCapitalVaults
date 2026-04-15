@@ -128,8 +128,10 @@ interface AppState {
   searchQuery: string;
   positions: Record<string, number>;
   onchainPositions: Record<string, number>;
+  onchainPositionRawByVault: Record<string, bigint>;
   tokenMetaByVault: Record<string, { asset: Address; decimals: number }>;
   walletBalancesByVault: Record<string, number>;
+  walletBalanceRawByVault: Record<string, bigint>;
   walletAddress: Address | null;
   positionLoading: boolean;
   txPending: boolean;
@@ -154,8 +156,10 @@ const state: AppState = {
   searchQuery: "",
   positions: {},
   onchainPositions: {},
+  onchainPositionRawByVault: {},
   tokenMetaByVault: {},
   walletBalancesByVault: {},
+  walletBalanceRawByVault: {},
   walletAddress: null,
   positionLoading: false,
   txPending: false,
@@ -231,6 +235,28 @@ function networkLogoImg(network: string): string {
 function parseNum(value: string): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function sanitizeAmountInput(value: string): string {
+  const compact = value.replaceAll(",", ".").replaceAll(/\s+/g, "");
+  const cleaned = compact.replaceAll(/[^\d.]/g, "");
+  const dotIndex = cleaned.indexOf(".");
+  if (dotIndex === -1) {
+    return cleaned;
+  }
+
+  const head = cleaned.slice(0, dotIndex + 1);
+  const tail = cleaned.slice(dotIndex + 1).replaceAll(".", "");
+  return `${head}${tail}`;
+}
+
+function trimFormattedAmount(value: string): string {
+  if (!value.includes(".")) {
+    return value;
+  }
+
+  const trimmed = value.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+  return trimmed === "" ? "0" : trimmed;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -435,7 +461,9 @@ async function refreshOnchainPosition(vault: Vault) {
     }
 
     state.onchainPositions[vault.address] = Number(formatUnits(assets, tokenMeta.decimals));
+    state.onchainPositionRawByVault[vault.address] = assets;
     state.walletBalancesByVault[vault.address] = Number(formatUnits(walletBalance, tokenMeta.decimals));
+    state.walletBalanceRawByVault[vault.address] = walletBalance;
     state.notice = "";
   } catch (error) {
     state.notice = error instanceof Error ? error.message : "Failed to read on-chain position.";
@@ -470,13 +498,6 @@ async function executeAction(vault: Vault) {
     return;
   }
 
-  const amountNum = parseNum(state.inputAmount);
-  if (amountNum <= 0) {
-    state.notice = "Enter a valid amount.";
-    render();
-    return;
-  }
-
   state.txPending = true;
   state.notice = "Preparing transaction...";
   render();
@@ -488,7 +509,27 @@ async function executeAction(vault: Vault) {
     const walletClient = createNetworkWalletClient(network);
     const publicClient = createNetworkPublicClient(network);
     const tokenMeta = await getOrLoadTokenMeta(vault);
-    const amount = parseUnits(state.inputAmount, tokenMeta.decimals);
+    const rawInput = state.inputAmount.trim();
+    if (!rawInput) {
+      throw new Error("Enter a valid amount.");
+    }
+
+    let amount = 0n;
+    try {
+      amount = parseUnits(rawInput, tokenMeta.decimals);
+    } catch {
+      throw new Error(`Invalid amount precision (max ${tokenMeta.decimals} decimals).`);
+    }
+
+    if (amount <= 0n) {
+      throw new Error("Enter a valid amount.");
+    }
+
+    const currentRaw = state.onchainPositionRawByVault[vault.address];
+    if (state.actionMode === "withdraw" && typeof currentRaw === "bigint" && amount > currentRaw) {
+      throw new Error("Amount exceeds current position.");
+    }
+
     const user = state.walletAddress;
     const vaultAddress = vault.address as Address;
 
@@ -711,7 +752,7 @@ function renderVaultDetail(vault: Vault): string {
           <section class="panel">
             <p class="panel-title">${actionLabel} ${escapeHtml(vault.token)}</p>
             <div class="amount-wrap">
-              <input id="amountInput" type="number" min="0" step="0.01" placeholder="0.00" value="${escapeHtml(state.inputAmount)}" />
+              <input id="amountInput" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00" value="${escapeHtml(state.inputAmount)}" />
               <button id="maxBtn" type="button">MAX</button>
             </div>
             <div class="panel-line">
@@ -855,15 +896,34 @@ function render() {
   const amountInput = document.querySelector<HTMLInputElement>("#amountInput");
   amountInput?.addEventListener("input", (event) => {
     const target = event.currentTarget as HTMLInputElement;
-    state.inputAmount = target.value;
+    const sanitized = sanitizeAmountInput(target.value);
+    if (sanitized !== target.value) {
+      target.value = sanitized;
+    }
+    state.inputAmount = sanitized;
     state.notice = "";
     updateAmountPreview(selectedVault);
   });
 
   const maxBtn = document.querySelector<HTMLButtonElement>("#maxBtn");
   maxBtn?.addEventListener("click", () => {
-    const position = getPosition(selectedVault);
-    state.inputAmount = state.actionMode === "withdraw" ? position.toFixed(2) : (state.walletBalancesByVault[selectedVault.address] ?? 0).toFixed(2);
+    const tokenMeta = state.tokenMetaByVault[selectedVault.address];
+    if (tokenMeta) {
+      const raw = state.actionMode === "withdraw"
+        ? state.onchainPositionRawByVault[selectedVault.address]
+        : state.walletBalanceRawByVault[selectedVault.address];
+      if (typeof raw === "bigint") {
+        state.inputAmount = trimFormattedAmount(formatUnits(raw, tokenMeta.decimals));
+      }
+    }
+
+    if (!state.inputAmount) {
+      const fallback = state.actionMode === "withdraw"
+        ? getPosition(selectedVault).toString()
+        : (state.walletBalancesByVault[selectedVault.address] ?? 0).toString();
+      state.inputAmount = trimFormattedAmount(fallback);
+    }
+
     state.notice = "";
     render();
   });
