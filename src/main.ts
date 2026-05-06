@@ -8,8 +8,110 @@ import {
   switchWalletChain
 } from "./web3/viem";
 
+// ── Pixel Canvas Animation ────────────────────────────────────────────────────
+(function initPixelCanvas() {
+  const canvas = document.getElementById("pixel-canvas") as HTMLCanvasElement | null;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.imageSmoothingEnabled = false;
+
+  const SCALE = 4;
+
+  let cols = 0;
+  let rows = 0;
+  let frame = 0;
+
+  interface Star {
+    x: number; y: number; phase: number; speed: number; size: number;
+    burstT: number; nextBurst: number;
+  }
+
+  let stars: Star[] = [];
+
+  function resize() {
+    canvas!.width  = window.innerWidth;
+    canvas!.height = window.innerHeight;
+    cols = Math.ceil(canvas!.width  / SCALE);
+    rows = Math.ceil(canvas!.height / SCALE);
+  }
+
+  function initStars() {
+    stars = Array.from({ length: 120 }, () => ({
+      x:         Math.random(),
+      y:         Math.random() * 0.85,
+      phase:     Math.random() * Math.PI * 2,
+      speed:     0.012 + Math.random() * 0.022,
+      size:      Math.random() < 0.18 ? 2 : 1,
+      burstT:    0,
+      nextBurst: Math.floor(Math.random() * 200),
+    }));
+  }
+
+  function px(x: number, y: number, color: string, size = 1) {
+    ctx!.fillStyle = color;
+    ctx!.fillRect(x * SCALE, y * SCALE, SCALE * size, SCALE * size);
+  }
+
+  function drawGrid() {
+    ctx!.strokeStyle = "rgba(24, 24, 31, 0.9)";
+    ctx!.lineWidth   = 1;
+    const step = SCALE * 8;
+    for (let x = 0; x < canvas!.width; x += step) {
+      ctx!.beginPath(); ctx!.moveTo(x, 0); ctx!.lineTo(x, canvas!.height); ctx!.stroke();
+    }
+    for (let y = 0; y < canvas!.height; y += step) {
+      ctx!.beginPath(); ctx!.moveTo(0, y); ctx!.lineTo(canvas!.width, y); ctx!.stroke();
+    }
+  }
+
+  function drawStars() {
+    stars.forEach((s) => {
+      s.phase += s.speed;
+      if (s.burstT > 0) {
+        s.burstT--;
+      } else {
+        s.nextBurst--;
+        if (s.nextBurst <= 0) {
+          s.burstT    = 3 + Math.floor(Math.random() * 4);
+          s.nextBurst = 60 + Math.floor(Math.random() * 220);
+        }
+      }
+      const baseAlpha  = 0.12 + 0.45 * (0.5 + 0.5 * Math.sin(s.phase));
+      const burstAlpha = s.burstT > 0 ? 0.98 : 0;
+      const alpha      = Math.min(1, baseAlpha + burstAlpha);
+
+      const rx = Math.floor(s.x * cols);
+      const ry = Math.floor(s.y * rows);
+      if (ry < 0 || ry >= rows) return;
+
+      if (s.burstT > 0 && s.size === 2) {
+        px(rx - 1, ry,     `rgba(255,255,220,0.35)`);
+        px(rx + 1, ry,     `rgba(255,255,220,0.35)`);
+        px(rx,     ry - 1, `rgba(255,255,220,0.35)`);
+        px(rx,     ry + 1, `rgba(255,255,220,0.35)`);
+      }
+      px(rx, ry, `rgba(255,255,255,${alpha.toFixed(2)})`, s.size);
+    });
+  }
+
+  function tick() {
+    frame++;
+    ctx!.fillStyle = "#050507";
+    ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
+    drawGrid();
+    drawStars();
+    requestAnimationFrame(tick);
+  }
+
+  window.addEventListener("resize", () => { resize(); initStars(); });
+  resize();
+  initStars();
+  requestAnimationFrame(tick);
+})();
+
 const VAULTS_API = "https://curatorapi.juliancapital.top/vaults";
-const OFFICIAL_LOGO_PATH = `${import.meta.env.BASE_URL}julian-capital-logo.png`;
 const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11" as Address;
 const RPC_MIN_INTERVAL_MS = 220;
 
@@ -591,43 +693,53 @@ async function executeAction(vault: Vault) {
   }
 }
 
-function renderWalletButton(network: NetworkName): string {
-  if (state.walletAddress) {
-    return `<button id="connectWalletBtn" class="wallet-btn" type="button">${escapeHtml(shortAddress(state.walletAddress))}</button>`;
-  }
+const HOME_URL = "https://sh11thead.github.io/";
 
-  return `<button id="connectWalletBtn" class="wallet-btn" data-network="${network}" type="button">Connect Wallet</button>`;
+function renderTopbar(network: NetworkName): string {
+  const walletLabel = state.walletAddress
+    ? escapeHtml(shortAddress(state.walletAddress))
+    : "CONNECT WALLET";
+  return `
+    <header class="topbar">
+      <a class="brand" href="${HOME_URL}" aria-label="JulianCapital home">
+        <span class="brand-name">JULIAN<span class="accent-text">CAPITAL</span></span>
+      </a>
+      <nav class="topbar-menu">
+        <a href="${HOME_URL}#dapps"><span class="nav-num">↩</span><span class="nav-label">HOME</span></a>
+        <span class="menu-active"><span class="nav-num">05</span><span class="nav-label">VAULTS</span></span>
+        <button id="connectWalletBtn" class="wallet-btn" data-network="${network}" type="button">${walletLabel}</button>
+      </nav>
+    </header>
+  `;
 }
 
 function renderVaultList(vaults: Vault[]): string {
   const totalDeposits = vaults.reduce((sum, vault) => sum + getPosition(vault), 0);
 
   return `
+    ${renderTopbar("eth")}
     <main class="vault-layout">
-      <header class="page-header">
-        <div class="header-left">
-          <img class="brand-logo" src="${OFFICIAL_LOGO_PATH}" alt="Julian Capital logo" />
-          <h1>Julian Capital Vaults</h1>
+      <div class="page-section-header">
+        <div class="page-title-wrap">
+          <p class="page-title-kicker">// ON-CHAIN YIELD</p>
+          <h1 class="page-title">VAULTS</h1>
         </div>
-        <div class="header-right">
-          <div class="pill">Total Deposits <strong>${formatCompactUsd(totalDeposits)}</strong></div>
-          ${renderWalletButton("eth")}
-        </div>
-      </header>
+        <div class="stat-pill">TOTAL DEPOSITS <strong>${formatCompactUsd(totalDeposits)}</strong></div>
+      </div>
 
       <section class="surface">
         <div class="table-toolbar">
-          <input id="searchInput" class="search-input" type="search" placeholder="Filter vaults" value="${escapeHtml(state.searchQuery)}" />
+          <input id="searchInput" class="search-input" type="search" placeholder="// FILTER VAULTS" value="${escapeHtml(state.searchQuery)}" />
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Network</th>
-                <th>Vault</th>
-                <th>Deposits</th>
-                <th>Liquidity</th>
-                <th>Curator</th>
+                <th>NETWORK</th>
+                <th>VAULT</th>
+                <th>DEPOSITS</th>
+                <th>LIQUIDITY</th>
+                <th>CURATOR</th>
                 <th>APY</th>
               </tr>
             </thead>
@@ -643,11 +755,11 @@ function renderVaultList(vaults: Vault[]): string {
                             <td>
                               <div class="network-cell">
                                 ${networkLogoImg(vault.network)}
-                                ${escapeHtml(networkLabelMap[vault.network] ?? vault.network)}
+                                ${escapeHtml(networkLabelMap[vault.network] ?? vault.network).toUpperCase()}
                               </div>
                             </td>
                             <td>
-                              <div class="vault-title">${escapeHtml(vault.name)}</div>
+                              <div class="vault-title">${escapeHtml(vault.name).toUpperCase()}</div>
                               <div class="subtle">${escapeHtml(shortAddress(vault.address))}</div>
                             </td>
                             <td>
@@ -660,11 +772,11 @@ function renderVaultList(vaults: Vault[]): string {
                             </td>
                             <td>
                               <div class="curator-cell">
-                                <img class="curator-logo" src="${OFFICIAL_LOGO_PATH}" alt="Julian Capital" />
-                                Julian Capital
+                                <span class="jc-logo">JC</span>
+                                JULIAN CAPITAL
                               </div>
                             </td>
-                            <td><strong>${parseNum(vault.apr).toFixed(2)}%</strong></td>
+                            <td><span class="apy-value">${parseNum(vault.apr).toFixed(2)}%</span></td>
                           </tr>
                         `;
         })
@@ -684,7 +796,7 @@ function renderVaultDetail(vault: Vault): string {
   const apy = parseNum(vault.apr);
   const liquidity = getLiquidity(vault);
   const isWithdraw = state.actionMode === "withdraw";
-  const actionLabel = isWithdraw ? "Withdraw" : "Deposit";
+  const actionLabel = isWithdraw ? "WITHDRAW" : "DEPOSIT";
   const hasWalletContext = Boolean(state.walletAddress) && !state.positionLoading;
 
   const predictedPosition = hasWalletContext
@@ -703,50 +815,56 @@ function renderVaultDetail(vault: Vault): string {
   const walletBalance = state.walletBalancesByVault[vault.address] ?? 0;
   const positionText = state.walletAddress
     ? state.positionLoading
-      ? "Reading on-chain..."
+      ? "READING ON-CHAIN..."
       : formatToken(position, vault.token)
-    : "Connect wallet to read";
+    : "CONNECT WALLET TO READ";
 
   return `
+    ${renderTopbar(vaultNetwork)}
     <main class="detail-layout">
-      <button id="backBtn" class="back-btn" type="button">Back to vaults</button>
+      <div class="detail-page-header">
+        <button id="backBtn" class="back-btn" type="button">← BACK TO VAULTS</button>
+        <h1 class="detail-vault-name">${escapeHtml(vault.name).toUpperCase()}</h1>
+        <div class="meta-row">
+          <span>${escapeHtml(shortAddress(vault.address))}</span>
+          <span class="meta-network">${networkLogoImg(vault.network)}${escapeHtml(networkLabelMap[vault.network] ?? vault.network).toUpperCase()}</span>
+          <span>${escapeHtml(vault.token)}</span>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-block">
+          <p class="metric-label">TOTAL DEPOSITS</p>
+          <p class="metric-value">${formatCompactUsd(position)}</p>
+          <p class="metric-sub">${positionText}</p>
+        </div>
+        <div class="metric-block">
+          <p class="metric-label">AVAILABLE LIQUIDITY</p>
+          <p class="metric-value">${formatCompactUsd(liquidity)}</p>
+          <p class="metric-sub">${formatToken(liquidity, vault.token)}</p>
+        </div>
+        <div class="metric-block">
+          <p class="metric-label">NET APY</p>
+          <p class="metric-value accent">${apy.toFixed(2)}%</p>
+          <p class="metric-sub">SNAPSHOT ${new Date(vault.snapshotAt).toLocaleString()}</p>
+        </div>
+      </div>
 
       <section class="detail-main">
         <div class="detail-left">
-          <h1>${escapeHtml(vault.name)}</h1>
-          <div class="meta-row">
-            <span>${escapeHtml(shortAddress(vault.address))}</span>
-            <span class="meta-network">${networkLogoImg(vault.network)}${escapeHtml(networkLabelMap[vault.network] ?? vault.network)}</span>
-            <span>${escapeHtml(vault.token)}</span>
-          </div>
-
-          <div class="metric-grid">
-            <div>
-              <p class="metric-label">Total Deposits</p>
-              <p class="metric-value">${formatCompactUsd(position)}</p>
-              <p class="metric-sub">${positionText}</p>
-            </div>
-            <div>
-              <p class="metric-label">Liquidity</p>
-              <p class="metric-value">${formatCompactUsd(liquidity)}</p>
-              <p class="metric-sub">${formatToken(liquidity, vault.token)}</p>
-            </div>
-            <div>
-              <p class="metric-label">Net APY</p>
-              <p class="metric-value">${apy.toFixed(2)}%</p>
-              <p class="metric-sub">Snapshot ${new Date(vault.snapshotAt).toLocaleString()}</p>
-            </div>
+          <p class="detail-left-title">// POSITION PROJECTIONS</p>
+          <div class="panel stats-panel">
+            <div class="panel-line"><span>NETWORK</span><strong>${escapeHtml(networkLabelMap[vault.network] ?? vault.network).toUpperCase()}</strong></div>
+            <div class="panel-line"><span>APY</span><strong class="apy-value">${apy.toFixed(2)}%</strong></div>
+            <div class="panel-line"><span>PROJECTED MONTHLY</span><strong id="preview-monthly">${formatCompactUsd(monthly)} → ${nextMonthly === null ? "-" : formatCompactUsd(nextMonthly)}</strong></div>
+            <div class="panel-line"><span>PROJECTED YEARLY</span><strong id="preview-yearly">${formatCompactUsd(yearly)} → ${nextYearly === null ? "-" : formatCompactUsd(nextYearly)}</strong></div>
           </div>
         </div>
 
         <aside class="detail-right">
-          <div class="detail-brand">
-            <img class="brand-logo" src="${OFFICIAL_LOGO_PATH}" alt="Julian Capital logo" />
-            ${renderWalletButton(vaultNetwork)}
-          </div>
           <div class="mode-tabs">
-            <button data-mode="deposit" class="${state.actionMode === "deposit" ? "active" : ""}" type="button">Deposit</button>
-            <button data-mode="withdraw" class="${state.actionMode === "withdraw" ? "active" : ""}" type="button">Withdraw</button>
+            <button data-mode="deposit" class="${state.actionMode === "deposit" ? "active" : ""}" type="button">DEPOSIT</button>
+            <button data-mode="withdraw" class="${state.actionMode === "withdraw" ? "active" : ""}" type="button">WITHDRAW</button>
           </div>
 
           <section class="panel">
@@ -756,28 +874,21 @@ function renderVaultDetail(vault: Vault): string {
               <button id="maxBtn" type="button">MAX</button>
             </div>
             <div class="panel-line">
-              <span>Current position</span>
+              <span>CURRENT POSITION</span>
               <strong>${positionText}</strong>
             </div>
             <div class="panel-line">
-              <span>After action</span>
+              <span>AFTER ACTION</span>
               <strong id="preview-after">${predictedPosition === null ? "-" : formatToken(predictedPosition, vault.token)}</strong>
             </div>
             <div class="panel-line">
-              <span>Wallet balance</span>
+              <span>WALLET BALANCE</span>
               <strong>${state.walletAddress ? formatToken(walletBalance, vault.token) : "-"}</strong>
             </div>
           </section>
 
-          <section class="panel stats-panel">
-            <div class="panel-line"><span>Network</span><strong>${escapeHtml(networkLabelMap[vault.network] ?? vault.network)}</strong></div>
-            <div class="panel-line"><span>APY</span><strong>${apy.toFixed(2)}%</strong></div>
-            <div class="panel-line"><span>Projected monthly</span><strong id="preview-monthly">${formatCompactUsd(monthly)} -> ${nextMonthly === null ? "-" : formatCompactUsd(nextMonthly)}</strong></div>
-            <div class="panel-line"><span>Projected yearly</span><strong id="preview-yearly">${formatCompactUsd(yearly)} -> ${nextYearly === null ? "-" : formatCompactUsd(nextYearly)}</strong></div>
-          </section>
-
-          <button id="actionBtn" class="submit-btn" type="button" ${isInvalid || !state.walletAddress || state.txPending ? "disabled" : ""}>${state.txPending ? "Pending..." : actionLabel}</button>
-          ${state.notice ? `<p class="notice">${escapeHtml(state.notice)}</p>` : ""}
+          <button id="actionBtn" class="submit-btn" type="button" ${isInvalid || !state.walletAddress || state.txPending ? "disabled" : ""}>${state.txPending ? "PENDING..." : actionLabel}</button>
+          ${state.notice ? `<p class="notice">// ${escapeHtml(state.notice)}</p>` : ""}
         </aside>
       </section>
     </main>
@@ -818,12 +929,18 @@ function updateAmountPreview(vault: Vault) {
 
 function render() {
   if (state.loading) {
-    root.innerHTML = `<main class="vault-layout"><div class="loading">Loading vaults...</div></main>`;
+    root.innerHTML = `
+      ${renderTopbar("eth")}
+      <main class="vault-layout"><div class="loading">LOADING VAULTS...</div></main>
+    `;
     return;
   }
 
   if (state.error) {
-    root.innerHTML = `<main class="vault-layout"><div class="error">${escapeHtml(state.error)}</div></main>`;
+    root.innerHTML = `
+      ${renderTopbar("eth")}
+      <main class="vault-layout"><div class="error">${escapeHtml(state.error)}</div></main>
+    `;
     return;
   }
 
