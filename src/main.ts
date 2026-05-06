@@ -31,20 +31,20 @@ import {
   let stars: Star[] = [];
 
   function resize() {
-    canvas!.width  = window.innerWidth;
+    canvas!.width = window.innerWidth;
     canvas!.height = window.innerHeight;
-    cols = Math.ceil(canvas!.width  / SCALE);
+    cols = Math.ceil(canvas!.width / SCALE);
     rows = Math.ceil(canvas!.height / SCALE);
   }
 
   function initStars() {
     stars = Array.from({ length: 120 }, () => ({
-      x:         Math.random(),
-      y:         Math.random() * 0.85,
-      phase:     Math.random() * Math.PI * 2,
-      speed:     0.012 + Math.random() * 0.022,
-      size:      Math.random() < 0.18 ? 2 : 1,
-      burstT:    0,
+      x: Math.random(),
+      y: Math.random() * 0.85,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.012 + Math.random() * 0.022,
+      size: Math.random() < 0.18 ? 2 : 1,
+      burstT: 0,
       nextBurst: Math.floor(Math.random() * 200),
     }));
   }
@@ -56,7 +56,7 @@ import {
 
   function drawGrid() {
     ctx!.strokeStyle = "rgba(24, 24, 31, 0.9)";
-    ctx!.lineWidth   = 1;
+    ctx!.lineWidth = 1;
     const step = SCALE * 8;
     for (let x = 0; x < canvas!.width; x += step) {
       ctx!.beginPath(); ctx!.moveTo(x, 0); ctx!.lineTo(x, canvas!.height); ctx!.stroke();
@@ -74,23 +74,23 @@ import {
       } else {
         s.nextBurst--;
         if (s.nextBurst <= 0) {
-          s.burstT    = 3 + Math.floor(Math.random() * 4);
+          s.burstT = 3 + Math.floor(Math.random() * 4);
           s.nextBurst = 60 + Math.floor(Math.random() * 220);
         }
       }
-      const baseAlpha  = 0.12 + 0.45 * (0.5 + 0.5 * Math.sin(s.phase));
+      const baseAlpha = 0.12 + 0.45 * (0.5 + 0.5 * Math.sin(s.phase));
       const burstAlpha = s.burstT > 0 ? 0.98 : 0;
-      const alpha      = Math.min(1, baseAlpha + burstAlpha);
+      const alpha = Math.min(1, baseAlpha + burstAlpha);
 
       const rx = Math.floor(s.x * cols);
       const ry = Math.floor(s.y * rows);
       if (ry < 0 || ry >= rows) return;
 
       if (s.burstT > 0 && s.size === 2) {
-        px(rx - 1, ry,     `rgba(255,255,220,0.35)`);
-        px(rx + 1, ry,     `rgba(255,255,220,0.35)`);
-        px(rx,     ry - 1, `rgba(255,255,220,0.35)`);
-        px(rx,     ry + 1, `rgba(255,255,220,0.35)`);
+        px(rx - 1, ry, `rgba(255,255,220,0.35)`);
+        px(rx + 1, ry, `rgba(255,255,220,0.35)`);
+        px(rx, ry - 1, `rgba(255,255,220,0.35)`);
+        px(rx, ry + 1, `rgba(255,255,220,0.35)`);
       }
       px(rx, ry, `rgba(255,255,255,${alpha.toFixed(2)})`, s.size);
     });
