@@ -111,7 +111,28 @@ import {
   requestAnimationFrame(tick);
 })();
 
+// ── Glitch effect ─────────────────────────────────────────────────────────────
+function glitch() {
+  const overlay = document.getElementById("glitch-overlay");
+  const appEl = document.getElementById("app");
+
+  if (overlay) {
+    overlay.classList.remove("active");
+    void overlay.offsetWidth; // reflow to restart animation
+    overlay.classList.add("active");
+    overlay.addEventListener("animationend", () => overlay.classList.remove("active"), { once: true });
+  }
+
+  if (appEl) {
+    appEl.classList.remove("glitch");
+    void appEl.offsetWidth;
+    appEl.classList.add("glitch");
+    appEl.addEventListener("animationend", () => appEl.classList.remove("glitch"), { once: true });
+  }
+}
+
 const VAULTS_API = "https://curatorapi.juliancapital.top/vaults";
+const LOGO_PATH = `${import.meta.env.BASE_URL}julian-capital-logo.png`;
 const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11" as Address;
 const RPC_MIN_INTERVAL_MS = 220;
 
@@ -291,6 +312,7 @@ function syncFromHash() {
 }
 
 function navigateTo(address: string | null) {
+  glitch();
   if (address) {
     history.pushState({}, "", "#/vault/" + address);
     state.selectedAddress = address;
@@ -706,7 +728,7 @@ function renderTopbar(network: NetworkName): string {
       </a>
       <nav class="topbar-menu">
         <a href="${HOME_URL}#dapps"><span class="nav-num">↩</span><span class="nav-label">HOME</span></a>
-        <span class="menu-active"><span class="nav-num">05</span><span class="nav-label">VAULTS</span></span>
+        <span class="menu-active"><span class="nav-num">05</span><span class="nav-label">NEST</span></span>
         <button id="connectWalletBtn" class="wallet-btn" data-network="${network}" type="button">${walletLabel}</button>
       </nav>
     </header>
@@ -722,21 +744,21 @@ function renderVaultList(vaults: Vault[]): string {
       <div class="page-section-header">
         <div class="page-title-wrap">
           <p class="page-title-kicker">// ON-CHAIN YIELD</p>
-          <h1 class="page-title">VAULTS</h1>
+          <h1 class="page-title">NEST</h1>
         </div>
         <div class="stat-pill">TOTAL DEPOSITS <strong>${formatCompactUsd(totalDeposits)}</strong></div>
       </div>
 
       <section class="surface">
         <div class="table-toolbar">
-          <input id="searchInput" class="search-input" type="search" placeholder="// FILTER VAULTS" value="${escapeHtml(state.searchQuery)}" />
+          <input id="searchInput" class="search-input" type="search" placeholder="// FILTER NESTS" value="${escapeHtml(state.searchQuery)}" />
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>NETWORK</th>
-                <th>VAULT</th>
+                <th>NEST</th>
                 <th>DEPOSITS</th>
                 <th>LIQUIDITY</th>
                 <th>CURATOR</th>
@@ -745,7 +767,7 @@ function renderVaultList(vaults: Vault[]): string {
             </thead>
             <tbody>
               ${vaults.length === 0
-      ? `<tr><td colspan="6" class="empty">No vaults found.</td></tr>`
+    ? `<tr><td colspan="6" class="empty">No nests found.</td></tr>`
       : vaults
         .map((vault) => {
           const deposit = getPosition(vault);
@@ -772,7 +794,7 @@ function renderVaultList(vaults: Vault[]): string {
                             </td>
                             <td>
                               <div class="curator-cell">
-                                <span class="jc-logo">JC</span>
+                                <img class="curator-logo" src="${LOGO_PATH}" alt="Julian Capital" />
                                 JULIAN CAPITAL
                               </div>
                             </td>
@@ -823,7 +845,7 @@ function renderVaultDetail(vault: Vault): string {
     ${renderTopbar(vaultNetwork)}
     <main class="detail-layout">
       <div class="detail-page-header">
-        <button id="backBtn" class="back-btn" type="button">← BACK TO VAULTS</button>
+        <button id="backBtn" class="back-btn" type="button">← BACK TO NEST</button>
         <h1 class="detail-vault-name">${escapeHtml(vault.name).toUpperCase()}</h1>
         <div class="meta-row">
           <span>${escapeHtml(shortAddress(vault.address))}</span>
@@ -931,7 +953,7 @@ function render() {
   if (state.loading) {
     root.innerHTML = `
       ${renderTopbar("eth")}
-      <main class="vault-layout"><div class="loading">LOADING VAULTS...</div></main>
+      <main class="vault-layout"><div class="loading">LOADING NESTS...</div></main>
     `;
     return;
   }
@@ -1004,6 +1026,7 @@ function render() {
         return;
       }
 
+      glitch();
       state.actionMode = mode;
       state.notice = "";
       render();
