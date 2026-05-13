@@ -10,6 +10,8 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@web3-onboard/core": "^2.24.1",
+    "@web3-onboard/injected-wallets": "^2.11.3",
     "viem": "^2.38.2"
   },
   "devDependencies": {

@@ -30,6 +30,29 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* --- Web3-Onboard modal overrides (pixel theme) -------------- */
+onboard-v2 {
+  --onboard-font-family-normal: 'Space Mono', 'Courier New', monospace;
+  --onboard-font-family-semibold: 'Space Mono', 'Courier New', monospace;
+  --onboard-font-family-light: 'Space Mono', 'Courier New', monospace;
+  --onboard-modal-backdrop: rgba(0, 0, 0, 0.85);
+  --onboard-wallet-button-border-color: var(--line);
+  --onboard-wallet-button-background: #0d0d14;
+  --onboard-wallet-button-background-hover: #13131e;
+  --onboard-wallet-button-color: #e8e8e0;
+  --onboard-close-button-background: transparent;
+  --onboard-close-button-color: #8a8a94;
+}
+
+/* Sharp corners everywhere inside the modal */
+onboard-v2 * {
+  border-radius: 0 !important;
+}
+
+/* Accent the selected/active states */
+onboard-v2 .connecting-container {
+  border-color: var(--accent) !important;
+}
 /* --- Pixel Canvas (fixed background) ------------------------- */
 #pixel-canvas {
   position: fixed;

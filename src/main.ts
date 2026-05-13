@@ -7,6 +7,10 @@ import {
   createNetworkWalletClient,
   switchWalletChain
 } from "./web3/viem";
+import { initOnboard } from "./web3/onboard";
+
+// Warm up Onboard (enables auto-reconnect on refresh)
+initOnboard();
 
 // ── Pixel Canvas Animation ────────────────────────────────────────────────────
 (function initPixelCanvas() {

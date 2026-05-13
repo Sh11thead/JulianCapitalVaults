@@ -8,6 +8,11 @@ import {
   type Hex
 } from "viem";
 import { getAllNetworks, getNetwork, type NetworkName } from "../config/networks";
+import {
+  connectWithOnboard,
+  getStoredProvider,
+  switchOnboardChain
+} from "./onboard";
 
 declare global {
   interface Window {
@@ -43,6 +48,9 @@ export function toViemChain(name: NetworkName): Chain {
 }
 
 export function getBrowserProvider(): EIP1193Provider {
+  const onboardProvider = getStoredProvider();
+  if (onboardProvider) return onboardProvider;
+
   if (!window.ethereum) {
     throw new Error("未检测到钱包，请先安装 MetaMask / Rabby 等 EVM 钱包。");
   }
@@ -70,28 +78,12 @@ export function createNetworkWalletClient(name: NetworkName) {
 }
 
 export async function connectWallet(preferredNetwork: NetworkName): Promise<ConnectedWallet> {
-  const walletClient = createNetworkWalletClient(preferredNetwork);
-
-  const [address] = await walletClient.requestAddresses();
-  const chainId = await walletClient.getChainId();
-
-  return {
-    address,
-    chainId
-  };
+  return connectWithOnboard(preferredNetwork);
 }
 
 export async function switchWalletChain(targetNetwork: NetworkName): Promise<number> {
-  const chain = toViemChain(targetNetwork);
+  await switchOnboardChain(targetNetwork);
   const walletClient = createNetworkWalletClient(targetNetwork);
-
-  try {
-    await walletClient.switchChain({ id: chain.id });
-  } catch {
-    await walletClient.addChain({ chain });
-    await walletClient.switchChain({ id: chain.id });
-  }
-
   return walletClient.getChainId();
 }
 
